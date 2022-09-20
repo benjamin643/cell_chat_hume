@@ -1,0 +1,126 @@
+---
+title: "barcode cleaning and tissues"
+output: html_document
+date: "2022-09-13"
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(tidyverse)
+library(here)
+library(Seurat)
+```
+
+
+# Load Data
+
+```{r}
+## HTO classification
+hto_class <- read_csv(here("data", "HTO_classifications_hume_dat_12_2021.csv"))
+
+## Seurat Object 
+integrated_hume <- readRDS(here("data", "integrated_M4.Rds"))
+
+#3 Library IDS from C Loupe 
+cloupe = read_csv(here("data", "LibraryID.csv"))
+
+```
+## Questions about Library IDS from C Loupe
+
+* I exported IDS from c loupe from the hume_results_12_2021 folder and the C Loupe Bar Codes and the hto_class bar codes only have 29333 (out of 93296 possible) matches. This tells me that the appendixes used on the barcodes from these two data sets DO NOT match. 
+
+```{r}
+sum(sort(hto_class$Barcode) %in% sort(cloupe$Barcode))
+```
+
+
+
+## Following code from when cloupe and seurat cell names are not the same 
+
+** This merges cloupe and Seurat
+
+```{r}
+# Start with the cloupe cell names. 
+# Here we pull off the appendix to get the original barcode for the cell
+x <- strsplit(as.character(cloupe$Barcode), split='-')
+cloupe$orig_barcode <- unlist(lapply(x, function(z) z[[1]]))
+cloupe$barcode_append <-unlist(lapply(x, function(z) z[[2]]))
+
+md <- integrated_hume@meta.data
+md$rowname <- rownames(md)
+md$order <- seq(1, nrow(md))
+
+# Now we do the same thing with the Seurat cell names to get the original barcode
+x <- strsplit(as.character(md$rowname), split='_')
+md$orig_barcode <- unlist(lapply(x, function(z) z[[1]]))
+x <- strsplit(as.character(md$orig_barcode), split='-')
+md$orig_barcode <- unlist(lapply(x, function(z) z[[1]]))
+
+# Check that all barcodes in seurat are present in the cloupe file
+table(md$orig_barcode %in% cloupe$orig_barcode)
+
+# I had to create a libraryID variable that matched the sample names in cloupe 
+md$LibraryID <- gsub("dat_","",as.character(md$orig.ident))
+md = md %>% mutate(LibraryID = case_when(
+  LibraryID == "471_NS" ~ "471_NS_FR",
+  TRUE ~ LibraryID
+))
+
+table(md$LibraryID %in% cloupe$LibraryID)
+
+# For each sample, check that all barcodes in seurat appear in cloupe
+for(i in unique(md$LibraryID)){
+  print(table(md[md$LibraryID==i,]$orig_barcode %in% cloupe[cloupe$LibraryID==i,]$orig_barcode))
+}
+
+# Merge the files together by library ID and original barcode
+md <- merge(md, cloupe[,c("Barcode", "LibraryID", "orig_barcode")])
+
+rownames(md) <- md$rowname
+md <- md[order(md$order),]
+
+integrated_hume@meta.data <- md
+
+```
+
+
+
+## Merge the Meta Data with HTO class 
+
+* The Barcode from hto class and from the cloupe (now merged into md) do not match. Believe I need to use the row name bar code from md
+
+```{r}
+# Get the original barcode and the appendix for each cell
+x <-strsplit(hto_class$Barcode, '-')
+hto_class$barcode_append <- unlist(lapply(x, function(x) x[2]))
+
+sample_num <- data.frame(barcode_append = seq(1,8,1), 
+                         orig.ident = c("Nov15_one_479_NS_Merge", "Nov15_two_480_Merge", "471_NS", 
+                                        "Nov16_two_477_NS_Merge", "Nov17_two_470_S_Merge", "Nov18_one_461_NS_Merge", 
+                                        "Nov18_two_465_S_Merge", "Nov22_two_462_S_Merge"))
+
+# Add sample name info to the HTO data
+hto_class <- merge(hto_class, sample_num)
+hto_class$orig_barcode <- unlist(lapply(x, function(x) x[1]))
+
+integrated_hume@meta.data$tissue <- NA
+
+
+for (i in unique(sample_num$orig.ident)){
+  for(j in unique(hto_class$HTO_classification)){
+    barcodes <- hto_class[hto_class$orig.ident==i & hto_class$HTO_classification==j,]$orig_barcode
+    integrated_hume@meta.data$tissue[integrated_hume@meta.data$LibraryID==i & integrated_hume@meta.data$orig_barcode %in% barcodes] <- j
+  }}
+
+
+saveRDS(integrated_hume, here('data','integrated_M4.Rds'))
+
+```
+
+
+
+# Questions
+
+* Are 471_NS_FR (cloupe library id) and dat_471_NS (seurat id) the same sample? 
+  + currently assuming yes 
