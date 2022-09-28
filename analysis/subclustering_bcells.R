@@ -61,7 +61,7 @@ integrated_hume <- readRDS( here('data','integrated_hume_12_2021_tissues.RDS'))
 
 
 
-include <- c(1,10)
+include <- c(11)
 
 # Subset data
 
@@ -71,26 +71,13 @@ recluster <- integrated_hume[,integrated_hume@meta.data$seurat_clusters %in% inc
 # Save overall cluster as reclusting will write over the seurat_clusters variable
 recluster@meta.data$overall_cluster <- recluster@meta.data$seurat_clusters
 
-## Filtering out cells based on >= 750 nFeature_RNA and <=0.25 percent.mito 
 
-### >=750 feature and < .25 mito 
-
-
-recluster@meta.data %>% dim() #13505 
-recluster = recluster[,recluster@meta.data$nFeature_RNA>=750]
-
-recluster = recluster[,recluster@meta.data$percent.mito <= 0.25]
-
-
-recluster@meta.data %>% filter(nFeature_RNA >= 750,percent.mito <= 0.25 ) 
-
-recluster@meta.data %>% dim() #9158 ; --- > 4347 cells removed or 32 percent of cells 
-
+# remove(integrated_hume)
 
 # Choose number of PCAs to use in clustering - we used 25 for our original clustering
 # so I stuck with this setting
 nPCAs = 25
-res = 0.4
+res = 0.15
 
 DefaultAssay(recluster) <- "integrated"
 
@@ -98,11 +85,11 @@ recluster <- FindNeighbors(object = recluster, dims = 1:nPCAs)
 
 recluster <- RunUMAP(object = recluster, reduction = "pca", dims = 1:nPCAs, n.neighbors=50)
 
-recluster <- FindClusters(recluster, reduction="pca", resolution=res, algorithm=3) # 
+recluster <- FindClusters(recluster, reduction="pca", resolution=res, algorithm=3) #
 
 ##### UMAP Plots ######
 
-pdf(here("results","tcell_clustering",'Tcell_recluster_UMAP.pdf'))
+pdf(here("results",'bcell_clustering','Bcell_recluster_UMAP.pdf'))
 
 p1 = DimPlot(recluster, reduction='umap', label=T)
 print(p1)
@@ -130,24 +117,13 @@ print(p1)
 dev.off()
 
 
-##### QC Plots by clusters
-
-# MAKE QC PLOTS BY CLUSTER
-pdf(here("results","tcell_clustering","tcell_cluster_QC_plots.pdf"))
-VlnPlot(recluster, c("nCount_RNA"), pt.size=0)
-VlnPlot(recluster, c("nFeature_RNA"), pt.size=0)
-VlnPlot(recluster, c("percent.mito"), pt.size=0)
-VlnPlot(recluster, c("percent.ribo"), pt.size=0)
-# VlnPlot(recluster, c("bcds_score"), pt.size=0)
-# VlnPlot(recluster, c("cxds_score"), pt.size=0)
-# VlnPlot(recluster, c("hybrid_score"), pt.size=0)
-dev.off()
-
+# Examining change in cluster totals after cutting off cells with different % mitochondrial reads 
 # 
-# # # Follow Seurat clustering steps - make sure you are using the integrated_hume assay
-# # DefaultAssay(recluster) <- "integrated"
 # 
-# pca_list = c(20, 25, 30)
+# # Follow Seurat clustering steps - make sure you are using the integrated_hume assay
+# DefaultAssay(recluster) <- "integrated"
+# 
+# pca_list = c(15, 20, 25, 30)
 # 
 # for (nPCAs in pca_list){
 # 
@@ -155,11 +131,11 @@ dev.off()
 # 
 # recluster <- RunUMAP(object = recluster, reduction = "pca", dims = 1:nPCAs, n.neighbors=50)
 # 
-# recluster <- FindClusters(recluster, reduction="pca", resolution=0.4, algorithm=3)
+# recluster <- FindClusters(recluster, reduction="pca", resolution=0.3, algorithm=3)
 # 
 # # Make a plot / UMAP to display results
 # # Here we color by cluster, sample, subject, time, some QC stats
-# pdf(here('results',"tcell_clustering",paste0("PCA_",as.character(nPCAs),"Tcell_recluster_UMAP_sctrans.pdf")))
+# pdf(here('results','bcell_clustering',paste0("PCA_",as.character(nPCAs),"Tcell_recluster_UMAP_sctrans.pdf")))
 # p1 = DimPlot(recluster, reduction='umap', label=T)
 # print(p1)
 # 
@@ -189,7 +165,7 @@ dev.off()
 # 
 # # ## after looking at results with different pcas, 25 seems reasonable
 # 
-# resolution_list = c(.3, .4, .5)
+# resolution_list = c(.2, .3, .4, .5)
 # 
 # nPCAs = 25
 # for (res in resolution_list){
@@ -206,7 +182,7 @@ dev.off()
 # 
 #   # Make a plot / UMAP to display results
 #   # Here we color by cluster, sample, subject, time, some QC stats
-#   pdf(here('results',"tcell_clustering", paste0("RES_",as.character(res),"_Tcell_recluster_UMAP_sctrans.pdf")))
+#   pdf(here('results','bcell_clustering',paste0("RES_",as.character(res),"_Tcell_recluster_UMAP_sctrans.pdf")))
 #   p1 = DimPlot(recluster, reduction='umap', label=T)
 #   print(p1)
 # 
@@ -246,11 +222,25 @@ dev.off()
 # recluster <- RunUMAP(object = recluster, reduction = "pca", dims = 1:nPCAs, n.neighbors=50)
 # 
 # recluster <- FindClusters(recluster, reduction="pca", resolution=res, algorithm=3) # 
-DimPlot(recluster, reduction='umap', label=T)
 
-# #========================================#
-# # Freq and Proportion of cell type in each sample #
-# #========================================#
+##### QC Plots by clusters
+# 
+# # MAKE QC PLOTS BY CLUSTER
+pdf(here("results",'bcell_clustering',"bell_cluster_QC_plots.pdf"))
+VlnPlot(recluster, c("nCount_RNA"), pt.size=0)
+VlnPlot(recluster, c("nFeature_RNA"), pt.size=0)
+VlnPlot(recluster, c("percent.mito"), pt.size=0)
+VlnPlot(recluster, c("percent.ribo"), pt.size=0)
+# VlnPlot(recluster, c("bcds_score"), pt.size=0)
+# VlnPlot(recluster, c("cxds_score"), pt.size=0)
+# VlnPlot(recluster, c("hybrid_score"), pt.size=0)
+dev.off()
+# 
+# DimPlot(recluster, reduction='umap', label=T)
+# 
+# # #========================================#
+# # # Freq and Proportion of cell type in each sample #
+# # #========================================#
 write.xlsx(list(cluster_freq = table(recluster@meta.data$seurat_clusters),
                 cluster_pct = 100*prop.table(table(recluster@meta.data$seurat_clusters)),
                 overall_cluster_freq = table(recluster@meta.data$overall_cluster),
@@ -259,7 +249,7 @@ write.xlsx(list(cluster_freq = table(recluster@meta.data$seurat_clusters),
                 sample_pct = 100*prop.table(table(recluster@meta.data$seurat_clusters, recluster@meta.data$LibraryID),2),
                 tissue_freq = table(recluster@meta.data$seurat_clusters, recluster@meta.data$tissue),
                 tissue_pct = 100*prop.table(table(recluster@meta.data$seurat_clusters, recluster@meta.data$tissue),2)),
-           here('results',"tcell_clustering",'joint_sample_Tcell_recluster_freq_pct.xlsx'))
+           here('results', 'bcell_clustering' ,'joint_sample_Bcell_recluster_freq_pct.xlsx'))
 
 # write.xlsx(list(as.data.frame(table(recluster@meta.data$seurat_clusters)) %>% rename(cluster = Var1, N = Freq),
 #                 cluster_pct = as.data.frame(100*prop.table(table(recluster@meta.data$seurat_clusters))) %>% rename(cluster = Var1, Percent = Freq),
@@ -274,13 +264,13 @@ write.xlsx(list(cluster_freq = table(recluster@meta.data$seurat_clusters),
 
 
 # Save the dataset
-saveRDS(recluster, here('data','Tcell_recluster.RDS'))
-
-
-
-#########################################################################
-# Create CLOUPE file for Kara to work with
-#########################################################################
+saveRDS(recluster, here('data','Bcell_recluster.RDS'))
+# 
+# 
+# 
+# #########################################################################
+# # Create CLOUPE file for Kara to work with
+# #########################################################################
 
 md <- recluster@meta.data
 
@@ -291,14 +281,12 @@ md$UMAP_2 <- recluster@reductions$umap@cell.embeddings[,2]
 # x <-strsplit(rownames(md), '_')
 # md$Barcode <- unlist(lapply(x, function(x) x[1]))
 
-write.csv(md[,c('Barcode', 'UMAP_1', 'UMAP_2')], 'tcell_recluster_umap_coordinates.csv', row.names = FALSE)
+write.csv(md[,c('Barcode', 'UMAP_1', 'UMAP_2')], here('results','bcell_clustering','bcell_recluster_umap_coordinates.csv'), row.names = FALSE)
 
 md$Tcell_recluster <- md$seurat_clusters
 
-write.csv(md[,c('Barcode', 'Tcell_recluster')], 'tcell_recluster_cloupe_categories.csv', row.names = FALSE)
+write.csv(md[,c('Barcode', 'Tcell_recluster')], here('results','bcell_clustering','bcell_recluster_cloupe_categories.csv'), row.names = FALSE)
 
-new_clusters = left_join(md[,c('Barcode', 'Tcell_recluster')], md[,c('Barcode', 'UMAP_1', 'UMAP_2')]) %>% select(Barcode, UMAP_1, UMAP_2, Tcell_recluster)
-write.csv(new_clusters, 'tcell_recluster_cloupe_all.csv', row.names = FALSE)
 
 ##################################################
 # Marker finding for each cluster
@@ -313,17 +301,17 @@ nClusters <- length(unique(recluster@meta.data$seurat_clusters))
 markers.list <- list()
 
 recluster2 = PrepSCTFindMarkers(recluster, assay = "SCT") # Question the FindMarkers function required I do this first; not sure if right
-#Given a merged object with multiple SCT models, this function uses minimum of the median UMI (calculated using the raw UMI counts) of 
-#individual objects to reverse the individual SCT regression model using minimum of median UMI as the sequencing depth covariate. 
+#Given a merged object with multiple SCT models, this function uses minimum of the median UMI (calculated using the raw UMI counts) of
+#individual objects to reverse the individual SCT regression model using minimum of median UMI as the sequencing depth covariate.
 #The counts slot of the SCT assay is replaced with recorrected counts and the data slot is replaced with log1p of recorrected counts.
 
 for(i in 1:nClusters) {
-  temp <- FindMarkers(recluster2, ident.1=(i-1), min.pct=0.1, logfc.threshold=0.25,  only.pos=T, assay = 'SCT') 
+  temp <- FindMarkers(recluster2, ident.1=(i-1), min.pct=0.1, logfc.threshold=0.25,  only.pos=T, assay = 'SCT')
   markers.list[[i]] <- temp[temp$p_val_adj < 0.05,]
 }
 
 names(markers.list) <- paste0('cl_', seq(0, nClusters-1,1))
-write.xlsx(markers.list, here('results',"tcell_clustering",'tcell_recluster_sct_combined_markers_list.xlsx'), rowNames=T)
+write.xlsx(markers.list, here('results','bcell_clustering','Bcell_recluster_sct_combined_markers_list.xlsx'), rowNames=T)
 
 combined <- markers.list
 
@@ -339,29 +327,29 @@ orig.idents <- as.character(colnames(sample_freq))
 for (i in 1:nClusters){
   low_count <- sample_freq[i,]<3
   if(sum(low_count)==0){
-    temp <- FindConservedMarkers(recluster2, ident.1=i-1, min.pct=0, logfc.threshold=0,  
+    temp <- FindConservedMarkers(recluster2, ident.1=i-1, min.pct=0, logfc.threshold=0,
                                  only.pos=F, assay = 'SCT', features = rownames(combined[[i]]),
                                  grouping.var = 'orig.ident')
-    
+
   }else{
-    temp <- FindConservedMarkers(recluster2[,!(recluster2@meta.data$orig.ident %in% orig.idents[low_count])], ident.1=i-1, min.pct=0, logfc.threshold=0,  
+    temp <- FindConservedMarkers(recluster2[,!(recluster2@meta.data$orig.ident %in% orig.idents[low_count])], ident.1=i-1, min.pct=0, logfc.threshold=0,
                                  only.pos=F, assay = 'SCT', features = rownames(combined[[i]]),
                                  grouping.var = 'orig.ident')
   }
-  
+
   markers.list[[i]] <- temp
-  
+
   if(dim(markers.list[[i]])[1]!=0){
     markers.list[[i]]$n_samples_significant <- rowSums(markers.list[[i]][,grep("p_val_adj", colnames(markers.list[[i]]))]<0.05)
-    
+
   }}
 
 names(markers.list) <- paste0('cl_', seq(0,nClusters-1,1))
 
-write.xlsx(markers.list, here('results',"tcell_clustering",'tcell_recluster_sct_sample_specific_markers_list.xlsx'), rowNames=T)
+write.xlsx(markers.list, here('results','bcell_clustering','Bcell_recluster_sct_sample_specific_markers_list.xlsx'), rowNames=T)
 
-
-## Quick doublet check based on binary classification 
+# 
+# ## Quick doublet check based on binary classification 
 # 
 # bcds_score <- read_csv("~/Desktop/bcds_score.csv")
 # 

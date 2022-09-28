@@ -117,6 +117,18 @@ saveRDS(integrated_hume, here('data','integrated_all_samples.RDS'))
 
 ```
 
+# creating a key code to assign sample names to bc filtrered matrix
+
+```{r}
+key_code = integrated_hume@meta.data
+
+x <- strsplit(as.character(key_code$Barcode), split='-')
+key_code$key <- unlist(lapply(x, function(z) z[[2]]))
+x <- strsplit(as.character(md$orig_barcode), split='-')
+md$orig_barcode <- unlist(lapply(x, function(z) z[[1]]))
+
+```
+
 
 
 # Questions
